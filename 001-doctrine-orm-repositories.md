@@ -36,11 +36,11 @@ Zrzut struktury plików wygląda następująco:
 Repository
 |-- Doctrine
 |   |-- UserRepository.php
-|   |--- CommentRepository.php
+|   |-- CommentRepository.php
 |-- UserRepositoryInterface.php
 |-- CommentRepositoryInterface.php
 ```
 
 ## Podsumowanie
 
-Nie twierdzę, że repozytorium dostarczone przez twórców Doctrine ORM jest złe, lecz złe jest zazwyczaj ich wykorzystanie w realnym projekcie. Pokusa jest o tyle większa, że programista otrzymuje potężny *interfejs* do działania na kolekcji danego typu encji. Szybkość zaimplementowania kolejnej funkcjonalności często przegrywa z dobrymi praktykami, a w tym wypadku po prostu z abstrakcją którą na porządku dziennym powinniśmy wykorzystywać w programowaniu obiektowym. Odbija się to czkawką gdy słyszymy od klienta o migrowaniu części danych (np. zdjęć) do innego zasobu (np. AWS S3). Jednak ten problem poruszę innym razem. 
+Nie twierdzę, że repozytorium dostarczone przez twórców Doctrine ORM jest złe, lecz złe jest zazwyczaj ich wykorzystanie w realnym projekcie. Pokusa ich bezpśredniego wykorzystania jest o tyle większa, że programista otrzymuje potężny *interfejs* do działania na kolekcji danego typu encji m.in za pomocą metod ```findBy```, ```findOneBy```, ```matching````. Szybkość zaimplementowania kolejnej funkcjonalności często przegrywa z dobrymi praktykami, a w tym wypadku po prostu z abstrakcją którą na porządku dziennym powinniśmy wykorzystywać w programowaniu obiektowym. Odbija się to czkawką gdy słyszymy od klienta o migrowaniu części danych do innego zasobu. Jednak ten problem poruszę innym razem. 
