@@ -4,4 +4,4 @@
 
 ## Index
 
-1. [001-doctrine-orm-repositories.md](Doctrine ORM & Repositories)
+1. [Doctrine ORM & Repositories](001-doctrine-orm-repositories.md)
