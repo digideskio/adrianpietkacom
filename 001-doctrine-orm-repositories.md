@@ -2,11 +2,15 @@
 
 Abstrakcyjne repozytorium udostępnine poprzez Doctrine ORM jest bardzo atrakcyjne pod wzgędem dostarczonej funkcjonalności. Wystarczy wywołać metodę ```getRepository``` na obiekcie Entity Managera aby otrzymać obiekt ```Doctrine\ORM\EntityRepository``` implementujacy dwa interfejsy:
 
-```Doctrine\Common\Persistence\ObjectRepository```
+```
+Doctrine\Common\Persistence\ObjectRepository
+```
 
 oraz
 
-```Doctrine\Common\Collections\Selectable```
+```
+Doctrine\Common\Collections\Selectable
+```
 
 ```php
 // przykład utworzenia repozytorium na podstawie UserEntity
