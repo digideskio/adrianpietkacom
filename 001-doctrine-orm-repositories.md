@@ -140,6 +140,7 @@ Następnie ```CreateNewUserService``` ulegnie drobnym modyfikacją:
 ```php
 namespace Services;
 
+use Exception\DuplicatedUserEmailException;
 use Repository\UserRepositoryInterface;
 
 class CreateNewUserService
