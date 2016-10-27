@@ -18,20 +18,61 @@ Przykład utworzenia repozytorium na podstawie UserEntity:
 $userRepository = $entityManager->getRepository(UserEntity::class);
 ```
 
-Autorzy Doctrine ORM zaimplementowali nieco więcej metod niż te wymuszone w.w interfejsami. Wśród nich znajduje się jednak prawdziwa perełka - metoda magiczna ```__call()```. Dzięki niej otrzymujemy możliwość używania niezdefiniowanego nigdzie interfejsu - chyba, że mamy na myśli schemat tabeli w bazie danych (ilość udostępnionych *metod* = ilość kolumn w tabeli bazodanowej* 2).
-Konkretniej, implementacja umożliwia nam wywoływanie nieistniejących metody w oparciu o schemat: ```findOneBy[ColumnName]``` oraz ```findBy[ColumnName]```. Rozwiązanie wydaje się bardzo atrakcyjne dla programisty, "od tak" otrzymujemy możliwość wyszukiwania encji po wzkazanym kryterium.
+Autorzy Doctrine ORM zaimplementowali nieco więcej metod niż te wymuszone w.w interfejsami. Wśród nich znajduje się jednak prawdziwa perełka - metoda magiczna ```__call()```. Dzięki niej otrzymujemy możliwość używania niezdefiniowanego nigdzie interfejsu - chyba, że mamy na myśli schemat tabeli w bazie danych (ilość udostępnionych *metod* = ilość kolumn w tabeli bazodanowej * 2).
+Konkretniej, implementacja umożliwia nam wywoływanie nieistniejących metody w oparciu o schemat: ```findOneBy[ColumnName]``` oraz ```findBy[ColumnName]```. Rozwiązanie wydaje się bardzo atrakcyjne dla programisty, "od tak" otrzymujemy możliwość wyszukiwania encji po wskazanym kryterium.
 
-Okazuje się jednak, że z początkowych publicznych metod, których doliczyłem się w klasie ```EntityRepository``` dokładnie **15**, nasz końcowy obiekt repozytorium utworzony dla konkretnej encji (zawierającej 10 właściwości) zawiera ich teoretycznie **35** ( ```15 + (10*2)```). Teoretycznie bo 20 z nich jest wynikiem implementacji metody ```__call()```. Podsumowując: 20 nigdzie nie zdefiniowanych metod - obsługiwanych w magiczny sposób.
+Okazuje się jednak, że z początkowych publicznych metod, których doliczyłem się w klasie ```EntityRepository``` dokładnie **15**, nasz końcowy obiekt repozytorium utworzony dla konkretnej encji (zawierającej 10 właściwości) zawiera ich teoretycznie **35** ( ```15 + (10*2)```). Teoretycznie bo 20 z nich jest wynikiem implementacji metody ```__call()```. Podsumowując: 20 nigdzie nie zdefiniowanych metod - obsługiwanych w magiczny sposób. 
 
-Bezpośrednie wykorzystywanie takiego obiektu repozytorium, bez przykrycia go warstwą własnej abstrakcji, jest dla mnie nie do przyjęcia ze względu na:
+Często spotykam się z mniej więcej takimi rozwiązaniami:
 
-- brak sprecyzowanego komunikatu - z jakiego konkretnego repozytorium chcemy skorzystać, możemy oczekiwać repozytorium encji użytkownika, a w rzeczywystości zostanie nam przekazane repozytorium komentarzy,
-- chęć korzystania z kontraktów (interfejsów) jest tutaj dość kłopotliwa, ponieważ konkretna implementacja dostarcza nam bardziej wzbogacone *API* (więcej metod) niż ta zdefiniowana w interfejsach, musimy się opierać na *pseudo*kontrakcie opartym o konkretną już implementację,
+```php
+namespace Services;
+
+use Exception\DuplicatedUserEmailException;
+use Entity\UserEntity;
+use Doctrine\ORM\EntityRepository;
+
+class CreateNewUserService
+{
+    private $userRepository;
+    
+    public function __construct(EntityRepository $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
+    
+    public function create(string $email)
+    {
+        // ...
+        
+        if ($this->userRepository->findByAddessEmail($email)) {
+            throw DuplicatedUserEmailException();
+        }
+        
+        $this->userRepository->add(new UserEntity($email));
+    }
+}
+```
+
+```php
+$entityManager = \Doctrine\ORM\EntityManager::create();
+$userRepository = $entityManager->getRepository(\Entity\UserEntity::class);
+$createNewUserService = new \Services\CreateNewUserService($userRepository);
+
+$createNewUserService->create('unikalnyadres@pocztaemail.com');
+```
+
+Wykorzystana w przykładzie metoda ```findByAddessEmail()``` jest wynikiem w.w magii Doctrina. Dodatkowo jesteśmy zależnieni od zewnętrznego interfejsu ```Doctrine\ORM\EntityRepository```, z niewiadomą ilością wywołań (w naszym kodzie) niezdefiniowanych metod interfejsu. Próba podmiany implementacji repozytorium, to po prostu walka z kodem po omacku.
+
+Podsumowując - bezpośrednie wykorzystywanie takiego obiektu repozytorium, bez przykrycia go warstwą własnej abstrakcji, jest dla mnie nie do przyjęcia ze względu na:
+
+- brak sprecyzowanego komunikatu - z jakiego konkretnego repozytorium chcemy skorzystać, możemy oczekiwać repozytorium encji użytkownika, a w rzeczywystości zostanie nam przekazane repozytorium komentarzy, oczekujemy tutaj bardzo generycznego obiektu klasy ```EntityRepository```,
+- chęć korzystania z kontraktów (interfejsów) jest tutaj dość kłopotliwa, ponieważ konkretna implementacja dostarcza nam bardziej wzbogacone *API* (więcej metod) niż ta zdefiniowana w interfejsach,
 - korzystanie z magicznych rozwiązań utrudnia w tym wypadku podmianę implementacji, o ile w ściśle zdefiniowany interfejsie wiemy jakie metody musimy zaimplementować o tyle tutaj, bez testów jednostkowych lub/i przeglądu kodu nie jesteśmy w stanie tego wykonać.
 
 ## Warstwa abstrakcji
 
-Mając na uwadze powyższe wady bezpośredniego wykorzystania gotowego rozwiązania, pokusiłem się o implementację własnej warstwy repozytorium. Co prawda wykorzystuje ona Doctrinowe ```getRepository()```, lecz opakowuje faktycznie wykorzystywane w aplikacji metody.
+Mając na uwadze powyższe wady bezpośredniego wykorzystania gotowego rozwiązania, pokusiłem się o implementację prostej warstwy abstrakcji. Wykorzystuje ona Doctrinowe ```getRepository()```, lecz opakowuje faktycznie wykorzystywane w aplikacji metody, ukrywając tym samym szczegóły implementacyjne repozytorium.
 
 Zrzut struktury plików wygląda następująco:
 
@@ -44,7 +85,7 @@ Repository
 |-- CommentRepositoryInterface.php
 ```
 
-Folder ```Repository/Doctrine``` zawiera konkretną implementację interfejsów zdefiniownaych w przestrzeni ```Repository```.
+Folder ```Repository/Doctrine``` zawiera konkretną już implementację interfejsów zdefiniownaych w przestrzeni ```Repository```.
 
 Rzućmy okiem na definicję interfejsu ```UserRepositoryInterface```:
 
@@ -53,18 +94,22 @@ namespace Repository;
 
 class UserRepositoryInterface
 {
-    public function getById(int $userId) : UserEntity;
-    public function getByEmail(string $userEmail) : UserEntity;
-    public function getAll(int $limit = 10) : array;
+    public function getByAddessEmail(string $email) : UserEntity;
+    public function add(UserEntity $userEntity) : UserEntity;
 }
 ```
+
+W dalszej części naszej aplikacji możemy jawnie wskazać krótego repozytorium oczekujemy - w tym wypadku należy pamiętać o "design by contract", więc oczekujemy *interfejsu repozytorium*, a nie jego implementacji.
 
 Przykładowa implementacja:
 
 ```php
 namespace Repository\Doctrine;
 
-class UserRepository
+use Entity\UserEntity;
+use Repository\UserRepositoryInterface;
+
+class UserRepository implement UserRepositoryInterface
 {
     private $entityManager;
     
@@ -73,25 +118,65 @@ class UserRepository
         $this->entityManager = $entityManager;
     }
     
-    public function getById(int $userId) : UserEntity
+    public function getByAddessEmail(string $email) : UserEntity
     {
-        $userEntity = $this->entityManager->getRepository(UserEntity::class)
-            ->findById($userId);
-            
-        if (!$userEntity) {
-            throw new \Exception\EntityNotFoundException(UserEntity::class, $userId);
-        }
-            
-        return $userEntity;
+        return $this->entityManager->getRepository(UserEntity::class)
+            ->findByAddressEmail($email);
+    }
+    
+    public function add(UserEntity $user) : UserEntity
+    {
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $user;
     }
 }
 ```
 
-Jawnie zdefiniowane *API* informuje nas o metodach które faktycznie wykorzystywane są w aplikacji. Umożliwia to między innymi szybszą implementację pełnego interfejsu. Jeżeli potrzebujemy zaimplementować inne źródło danych (np. dowolny typ WebService) wystarczy zdefiniować nowy namespace ```Repository/WebService``` i umieścić w nim konkretną implementację dla danego interfejsu.
+Następnie ```CreateNewUserService``` ulegnie drobnym modyfikacją:
 
-Przy dobrze zaprojektowanej architekturze aplikacji nie będziemy potrzebowali wprowadzania modyfikacji w kodzie aby dokonać podmiany implementacji.
 
-Jeżeli działamy w oparciu o framework Symfony 2.x/3.x to sprawa ma się bardzo prosto. Wystarczy aby nową implementację wstrzyknąć (Dependency Injection) w odpowiednie cześci aplikacji - [w definicji kontenera zależności](http://symfony.com/doc/current/service_container.html).
+```php
+namespace Services;
+
+use Repository\UserRepositoryInterface;
+
+class CreateNewUserService
+{
+    private $userRepository;
+    
+    public function __construct(UserRepositoryInterface $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
+    
+    public function create(string $email)
+    {
+        // ...
+        
+        if ($this->userRepository->getByAddessEmail($email)) {
+            throw DuplicatedUserEmailException();
+        }
+        
+        $this->userRepository->add(new UserEntity($email));
+    }
+}
+```
+
+Wywołanie też wymaga nieco odmiennej definicji:
+
+```php
+$entityManager = \Doctrine\ORM\EntityManager::create();
+$userRepository = new \Repository\Doctrine\UserRepository($entityManager);
+$createNewUserService = new \Services\CreateNewUserService($userRepository);
+
+$createNewUserService->create('unikalnyadres@pocztaemail.com');
+```
+
+Zmiany widoczne w kodzie są kosmetyczne, jednak takie podejście umożliwia nam łatwą podmianę repozytorium. Jawnie zdefiniowany interfejs informuje nas o metodach które faktycznie wykorzystywane są w aplikacji. 
+
+Dziś wykorzystujemy Doctrine, jednak jutro może się okazać, że część danych migrujemy w zupełnie inny byt i potrzebujemy dane przesyłać do zewnętrznego API. Przy wyabstrahowanym rozwiązaniu potrzebujemy jedynie zdefiniować nowy namespace np. ```Repository/WebService```, zaimplementować interfejs w oparciu o inne źródło danych (np. z wykorzystaniem *Guzzle*), podmienić moment wstrzyknięcia implementacji do klasy ```CreateNewUserService``` z implementacji Doctrinowej na nową.
 
 ## Podsumowanie
 
