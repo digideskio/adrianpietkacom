@@ -92,7 +92,7 @@ Rzućmy okiem na definicję interfejsu ```UserRepositoryInterface```:
 ```php
 namespace Repository;
 
-class UserRepositoryInterface
+interface UserRepositoryInterface
 {
     public function getByAddessEmail(string $email) : UserEntity;
     public function add(UserEntity $userEntity) : UserEntity;
